@@ -67,10 +67,10 @@ int rio_readn_b(rio_buf* rb, char*buf, int len) {
 
 	while(left > 0) {
 		if (rb->n_left == 0) {
-			int n = read(rb->fd, rb->ptr, sizeof(rb->buf));
+			int n = read(rb->fd, rb->buf, sizeof(rb->buf));
 			if (n < 0) {
 				if (errno != EINTR)
-					return -1;
+				return -1;
 			} else if (n == 0) {
 				break;
 			} else {
@@ -96,7 +96,7 @@ int rio_readn_b(rio_buf* rb, char*buf, int len) {
 int rio_realine_b(rio_buf* rb, char*buf, int max_len) { 
 	char c, *ptr = buf;
 	int n;
-	for(int n = 1; n < max_len; n++) {
+	for(n = 1; n < max_len; n++) {
 		int n_read = rio_readn_b(rb, &c, 1);
 		if (n_read < 0) {
 			return -1;

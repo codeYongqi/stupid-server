@@ -12,4 +12,6 @@ write server
 - support http 
 - support proxy?
 
-
+issue:
+incldue conflicts
+build project is too hard, needt to add makefile
