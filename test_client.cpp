@@ -13,10 +13,15 @@ void send_http_get_request(int connfd, const char *uri) {
 	rio_writen(connfd, buf, strlen(buf));
 }
 
-int main() {
+int main(int argc, char **argv) {
 	int fd = open_clientfd("127.0.0.1", "8080");
-	char buf[1024];
-
-	send_http_get_request(fd, "/home");
+	send_http_get_request(fd, argv[1]);
+	int len;
+	rio_buf buf;
+	char string[1024];
+	rio_buf_init(fd, &buf);
+	while((len = rio_realine_b(&buf, string ,1024)) > 0) {
+		printf("%s", string);
+	}
 }
 

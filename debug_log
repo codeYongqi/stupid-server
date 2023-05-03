@@ -1,1 +1,21 @@
+argc=<error reading variable: allocate too many memory on main stack
 
+think about when the for loop stop(when contains except case)
+
+dont't find char or string in orginal string after chaning the original string
+
+''' c
+			char *ptr = strchr(buf, ' ');
+			*ptr = '\0';
+			the original string is "GET" now becase set '\0'
+			strcpy(method, buf);
+			ptr += 1;
+			char *ptr2 = strchr(buf, ' ');
+			*ptr = '\0';
+'''
+
+need to close fd
+
+sprintf will not fulsh string without '\n'
+
+use memecpy copy string of fixed length, remember to set last pos to '\0' after calling memcpy

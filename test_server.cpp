@@ -73,10 +73,18 @@ void serve(int connfd, char* uri) {
 		struct stat stat_buf;
 		stat(filepath, &stat_buf);
 
-		char *argv[0];
+		char *argv[2];
+		argv[0] = filepath;
+		argv[1] = NULL;
 		if (S_ISREG(stat_buf.st_mode)) {
 			setenv("QUERY_STRING", query_string, 1);
-			execve(filepath, argv, environ);
+			if (fork() == 0) {
+				dup2(connfd, STDOUT_FILENO);
+				close(connfd);
+				execve(filepath, argv, environ);
+			} else {
+				close(connfd);
+			}
 		}
 			
 	} else {
@@ -108,12 +116,13 @@ void read_header(int connfd, pool* client_pool) {
 			*ptr = '\0';
 			strcpy(method, buf);
 			ptr += 1;
-			char *ptr2 = strchr(buf, ' ');
-			*ptr = '\0';
+			char *ptr2 = strchr(ptr, ' ');
+			*ptr2 = '\0';
 			strcpy(uri, ptr);
-			char *ptr3 = strchr(buf, '\r');
-			*ptr = '\0';
-			strcpy(version, ptr);
+			ptr2 += 1;
+			char *ptr3 = strchr(ptr2, '\r');
+			*ptr3 = '\0';
+			strcpy(version, ptr2);
 
 			serve(connfd, uri);
 		}
@@ -126,7 +135,8 @@ void read_header(int connfd, pool* client_pool) {
 
 void check_clients(pool* client_pool) {
 	int i;
-	for(i = 0; i <= client_pool -> maxfd && i != listenfd; i++) {
+	for(i = 0; i <= client_pool -> maxfd ; i++) {
+		if (i == listenfd) continue;
 		if(FD_ISSET(i, &client_pool->readyset)) {
 			read_header(i, client_pool);
 			FD_CLR(i, &client_pool->activeset);
