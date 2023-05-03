@@ -18,6 +18,5 @@ void get_http_resp_header(char* buf, const char* code, const char* body) {
 	ptr += sprintf(ptr, "Content-Length: %d\r\n", cont_len);
 	ptr += sprintf(ptr, "\r\n");
 	ptr += sprintf(ptr, "%s", body);
-	printf("Reponse is:\n%s", buf);
 }
 
