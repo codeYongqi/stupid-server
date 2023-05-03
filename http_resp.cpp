@@ -21,6 +21,3 @@ void get_http_resp_header(char* buf, const char* code, const char* body) {
 	printf("Reponse is:\n%s", buf);
 }
 
-
-
-

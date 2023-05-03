@@ -1,11 +1,11 @@
 #include "open_sock_fd.h"
-#include "rio.h"
 #include <sys/socket.h>
 #include <memory>
 #include <csignal>
 #include "http_resp.h"
 #include <unistd.h>
 #include <sys/mman.h>
+#include <fcntl.h>
 
 #define MAXLINE 1024
 
@@ -27,6 +27,7 @@ typedef struct {
 	int maxi;
 	int maxfd;
 	int n_ready;
+	rio_buf client_buf[FD_SETSIZE];	
 } pool;
 
 void init_pool(int listenfd, pool* client_pool) {
@@ -40,18 +41,10 @@ void init_pool(int listenfd, pool* client_pool) {
 
 void add_client(int connfd, pool* client_pool) {
 	FD_SET(connfd, &client_pool->activeset);
+	rio_buf_init(connfd, &client_pool->client_buf[connfd]);
+
 	if (connfd > client_pool->maxfd) {
 		client_pool->maxfd = connfd;
-	}
-}
-
-void check_clients(pool* client_pool) {
-	int i;
-	for(i = 0; i < FD_SETSIZE && i != listenfd; i++) {
-		if(FD_ISSET(i, &client_pool->readyset)) {
-			serve(connfd);//TODO:				
-			FD_CLR(i, &client_pool->activeset);
-		}	
 	}
 }
 
@@ -67,11 +60,11 @@ void serve(int connfd, char* uri) {
 		int filesize = stat_buf.st_size;
 		char *src = (char *)mmap(NULL, filesize, PROT_READ, MAP_PRIVATE, fd, 0);
 		rio_writen(fd, src, filesize);
-	} else if ((ptr = strstr(uri, "bin")) != NULL){
+	} else if ((ptr = strstr(uri, "cgi-bin")) != NULL){
 		// /bin/adder?1&2
 		char filepath[PATH_MAX];		
 		
-		ptr += 2;
+		ptr += 6;
 		*ptr = '.';
 		strcpy(filepath, ptr);
 		query_string = strchr(filepath, '?');
@@ -80,9 +73,10 @@ void serve(int connfd, char* uri) {
 		struct stat stat_buf;
 		stat(filepath, &stat_buf);
 
+		char *argv[0];
 		if (S_ISREG(stat_buf.st_mode)) {
 			setenv("QUERY_STRING", query_string, 1);
-			execve(filepath, NULL, environ);
+			execve(filepath, argv, environ);
 		}
 			
 	} else {
@@ -93,6 +87,54 @@ void serve(int connfd, char* uri) {
 	}
 	fflush(stdout);
 }
+
+/**
+ * 
+ */
+void read_header(int connfd, pool* client_pool) {
+	int len;
+	char buf[1024];
+	char method[10];
+	char uri[PATH_MAX];
+	char version[10];
+	int cnt = 0;
+	while((len = rio_realine_b(&client_pool->client_buf[connfd], buf, 1024)) > 0) {
+		if(strcmp(buf, "\r\n") == 0) {
+			break;
+		}
+
+		if (cnt == 0){
+			char *ptr = strchr(buf, ' ');
+			*ptr = '\0';
+			strcpy(method, buf);
+			ptr += 1;
+			char *ptr2 = strchr(buf, ' ');
+			*ptr = '\0';
+			strcpy(uri, ptr);
+			char *ptr3 = strchr(buf, '\r');
+			*ptr = '\0';
+			strcpy(version, ptr);
+
+			serve(connfd, uri);
+		}
+
+		printf("receive %d bytes from client\n", len);
+		printf("%s", buf);
+		cnt++;
+	}
+}
+
+void check_clients(pool* client_pool) {
+	int i;
+	for(i = 0; i <= client_pool -> maxfd && i != listenfd; i++) {
+		if(FD_ISSET(i, &client_pool->readyset)) {
+			read_header(i, client_pool);
+			FD_CLR(i, &client_pool->activeset);
+		}	
+	}
+}
+
+pool client_pool;
 
 int main(int argc, char **argv) {
 
@@ -112,16 +154,16 @@ int main(int argc, char **argv) {
 	signal(SIGINT, sig_handler);
 	struct sockaddr_in client_addr;
 	socklen_t addrlen = sizeof(struct sockaddr_in);
-	pool client_pool;
+	init_pool(listenfd, &client_pool);
 
 	char buf[MAXLINE];
 	int connfd;
 	while(1) {
-		fd_set readfds;
-		select(listenfd, &readfds, NULL, NULL, NULL);
+		client_pool.readyset = client_pool.activeset;
+		select(client_pool.maxfd + 1, &client_pool.readyset, NULL, NULL, NULL);
 
-		if (FD_ISSET(listenfd, &readfds)) {
-			connfd = accept(client_pool.maxfd+1, (struct sockaddr*)&client_addr, &addrlen);
+		if (FD_ISSET(listenfd, &client_pool.readyset)) {
+			connfd = accept(listenfd, (struct sockaddr*)&client_addr, &addrlen);
 			if (connfd < 0) {
 				fprintf(stderr, "failed to accept request");
 				continue;
@@ -130,14 +172,5 @@ int main(int argc, char **argv) {
 		}
 
 		check_clients(&client_pool);
-
-		rio_buf r_buf;
-		rio_buf_init(accept_fd, &r_buf);
-		int len;
-
-		while ((len = rio_realine_b(&r_buf, buf, MAXLINE)) > 0){
-			printf("receive %d bytes from client\n", len);
-			printf("%s", buf);
-		}
 	}
 }
