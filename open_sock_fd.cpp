@@ -61,7 +61,7 @@ int open_listenfd(const char *port) {
 			}
 		} else {
 			std::cerr << "failed to bind to socket fd\n";
-			continue;
+			fd = -1;
 		}
 	}
 

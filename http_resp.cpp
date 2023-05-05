@@ -40,3 +40,14 @@ void get_http_resp_header(char* buf, const char* code, const char* body) {
 	ptr += sprintf(ptr, "%s", body);
 }
 
+void get_http_resp_header_n(char* buf, int cont_len) {
+	char *ptr = buf;
+	const char* code = "200";
+	char code_msg[127];
+	get_code_msg(code, code_msg);
+	ptr += sprintf(ptr, "HTTP/1.1 %s %s\r\n", code, code_msg);
+	ptr += sprintf(ptr, "Server: Stupid Server\r\n");
+	ptr += sprintf(ptr, "Host: Stupid Server\r\n");
+	ptr += sprintf(ptr, "Content-Length: %d\r\n", cont_len);
+	ptr += sprintf(ptr, "\r\n");
+}

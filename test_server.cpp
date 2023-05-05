@@ -59,13 +59,16 @@ void serve(int connfd, char* uri) {
 		stat(ptr, &stat_buf);
 		int filesize = stat_buf.st_size;
 		char *src = (char *)mmap(NULL, filesize, PROT_READ, MAP_PRIVATE, fd, 0);
-		rio_writen(fd, src, filesize);
+		char buf[1024];
+		get_http_resp_header_n(buf, filesize);
+		rio_writen(connfd, buf, strlen(buf));
+		rio_writen(connfd, src, filesize);
 	} else if ((ptr = strstr(uri, "cgi-bin")) != NULL){
 		// /bin/adder?1&2
-		char filepath[PATH_MAX];		
 		
 		ptr += 6;
 		*ptr = '.';
+		char filepath[strlen(ptr)+1];		
 		strcpy(filepath, ptr);
 		query_string = strchr(filepath, '?');
 		*query_string = '\0';
@@ -77,19 +80,19 @@ void serve(int connfd, char* uri) {
 		argv[0] = filepath;
 		argv[1] = NULL;
 		if (S_ISREG(stat_buf.st_mode)) {
+			//SET environment
 			setenv("QUERY_STRING", query_string, 1);
 			if (fork() == 0) {
 				dup2(connfd, STDOUT_FILENO);
 				close(connfd);
 				execve(filepath, argv, environ);
-			} else {
-				close(connfd);
-			}
+			} 
 		}
 			
 	} else {
 		char buf[8192];	
-		const char *body = "<h>Given Path is not found</h>";
+
+		const char *body = "<!DOCTYPE html>\n<html>\n  <h>Given Path is not found</h>\n</html>\n";
 		get_http_resp_header(buf, "404", body);
 		rio_writen(connfd, buf, strlen(buf));
 	}
@@ -140,6 +143,7 @@ void check_clients(pool* client_pool) {
 		if(FD_ISSET(i, &client_pool->readyset)) {
 			read_header(i, client_pool);
 			FD_CLR(i, &client_pool->activeset);
+			close(i);
 		}	
 	}
 }

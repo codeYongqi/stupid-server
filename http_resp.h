@@ -5,3 +5,5 @@
 #include <sys/stat.h>
 
 void get_http_resp_header(char* buf, const char* code, const char* body);
+
+void get_http_resp_header_n(char* buf, int cont_len);
