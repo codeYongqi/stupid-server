@@ -15,3 +15,5 @@ write server
 issue:
 incldue conflicts
 build project is too hard, needt to add makefile
+
+add makefile
